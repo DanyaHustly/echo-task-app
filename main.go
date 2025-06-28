@@ -31,7 +31,7 @@ func postTaskHandler(c echo.Context) error {
 
 func getAllTasksHandler(c echo.Context) error {
 	// Просто возвращаем всю карту задач в виде JSON
-	return c.JSON(http.StatusOK, tasks)
+	return c.JSON(http.StatusOK, task)
 }
 
 func patchTaskHandler(c echo.Context) error {
