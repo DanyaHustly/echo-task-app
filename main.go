@@ -1,11 +1,12 @@
 package main
 
 import (
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"net/http"
 )
 
-var task string
+var task = map[string]string{}
 
 type RequestBody struct {
 	Task string `json:"task"`
@@ -14,23 +15,71 @@ type RequestBody struct {
 func postTaskHandler(c echo.Context) error {
 	var reqBody RequestBody
 
-	err := c.Bind(&reqBody)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	if err := c.Bind(&reqBody); err != nil {
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Неверный JSON"})
 	}
 
-	task = reqBody.Task
+	id := uuid.New().String()
 
-	return c.String(http.StatusOK, "Задача получена")
+	task[id] = reqBody.Task
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"id":   id,
+		"task": reqBody.Task,
+	})
 }
 
-func getTaskHandler(c echo.Context) error {
-	return c.String(http.StatusOK, "Задача: "+task)
+func getAllTasksHandler(c echo.Context) error {
+	// Просто возвращаем всю карту задач в виде JSON
+	return c.JSON(http.StatusOK, tasks)
+}
+
+func patchTaskHandler(c echo.Context) error {
+	id := c.Param("id")
+
+	if _, ok := task[id]; ok {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Задача не найдена"})
+	}
+
+	var reqBody RequestBody
+	if err := c.Bind(&reqBody); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Не верный JSON"})
+	}
+
+	task[id] = reqBody.Task
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"id":   id,
+		"task": reqBody.Task,
+	})
+}
+
+func deleteTaskHandler(c echo.Context) error {
+	id := c.Param("id")
+
+	if _, ok := task[id]; !ok {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Задача не найдена"})
+	}
+
+	delete(task, id)
+
+	return c.JSON(http.StatusOK, "Задача удалена")
 }
 func main() {
 	e := echo.New()
-	e.POST("/task", postTaskHandler)
-	e.GET("/", getTaskHandler)
 
+	// Создать задачу (Create)
+	e.POST("/tasks", postTaskHandler)
+
+	// Получить все задачи (Read)
+	e.GET("/tasks", getAllTasksHandler)
+
+	// Обновить задачу по ID (Update)
+	e.PATCH("/tasks/:id", patchTaskHandler)
+
+	// Удалить задачу по ID (Delete)
+	e.DELETE("/tasks/:id", deleteTaskHandler)
+
+	// Запускаем сервер на порту 8080
 	e.Logger.Fatal(e.Start(":8080"))
 }
